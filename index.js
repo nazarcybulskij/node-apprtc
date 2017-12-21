@@ -27,9 +27,6 @@ server.views({
   path: './view'
 });
 
-server.start(function() {
-  console.log('Server started at ' + server.info.uri + '.');
-});
 
 //  push
 
@@ -40,50 +37,14 @@ var sender = gcm.Sender(serverKey)
 //
 
 //IO_Sockets
-
-var socketIO = require('socket.io');
-var http = require('http');
-
+var io = require('socket.io')(server.listener);
 
 var listOfUsers = {};
 
 var listOfUsersOffline = {};
-var port = process.env.PORT || '8080';
-var express = require('express');
-var app1 = express();
-/**
- * Get port from environment and store in Express.
- */
-
-var port = normalizePort(process.env.PORT || '8080');
-app1.set('port', port);
-
-function normalizePort(val) {
-    var port = parseInt(val, 10);
-
-    if (isNaN(port)) {
-        // named pipe
-        return val;
-    }
-
-    if (port >= 0) {
-        // port number
-        return port;
-    }
-
-    return false;
-}
 
 
-
-
-
-
-var serversoccket = http.createServer(app1);
-
-var io = socketIO.listen(serversoccket);
-
-io.sockets.on('connection', function(socket) {
+io.on('connection', function(socket) {
 
     var params = socket.handshake.query;
     var sessionid = params.sessionid;
@@ -282,4 +243,9 @@ io.sockets.on('connection', function(socket) {
     });
 
 });
+
+server.start(function() {
+    console.log('Server started at ' + server.info.uri + '.');
+});
+
 
