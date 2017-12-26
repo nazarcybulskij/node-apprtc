@@ -93,13 +93,24 @@ io.on('connection', function(socket) {
 
 
 
-    socket.on('message', function(message) {
-        log('Client said: ', message);
-        // for a real app, would be room-only (not broadcast)
-        socket.broadcast.emit('message', message);
+    socket.on('message', function(message,userId) {
+        
+        var userTo = listOfUsers[userId];
+        var userFrom = listOfUsers[socket.userid];
+        
+        if (userTo == undefined) {
+
+
+        }else{
+            socket.emit('message_received', message, userId);
+            userTo.socket.emit('message_new', message, socket.userid);
+        }
+        
+        // log('Client said: ', message);
+        // // for a real app, would be room-only (not broadcast)
+        // socket.broadcast.emit('message', message);
     });
 
-    //sendCallPush('/topics/nazarko%40gmail.com')
 
 
 
@@ -124,16 +135,14 @@ io.on('connection', function(socket) {
                 otherUserId:socket.userid
             }
 
-            // userTo.otherUserId = socket.userid;
-            // userTo = listOfUsersOffline[userId]
-            // userTo.otherUserId = socket.userid
-            //userTo.otherUserId = socket.userid;
-
         } else{
-            // socket.join(userId);
-            userFrom.socket.emit('outgoing-call', userId, socket.id);
+            if (userFrom!==undefined){
+                if (userFrom.socket!==undefined){
+                        userFrom.socket.emit('outgoing-call', userId, socket.id);
+                }
+                userFrom.otherUserId = userId;
+            }
             userTo.socket.emit('incoming-call', userId, socket.id);
-            userFrom.otherUserId = userId;
             userTo.otherUserId = socket.userid;
         }
     });
@@ -144,11 +153,6 @@ io.on('connection', function(socket) {
         var userTo = listOfUsers[userId];
         var userFrom = listOfUsers[socket.userid];
 
-        // if (userTo == undefined) {
-        //     socket.leaveAll()
-        //     userFrom.socket.emit('answer-call-phone', userId, socket.id);
-        //     return;
-        // } else{
 
         if (userFrom === userTo){
             userTo.socket.emit('answer-call-phone', userId, socket.id);
@@ -231,14 +235,6 @@ io.on('connection', function(socket) {
 
     socket.on('disconnect', function() {
         console.log('Got disconnect!');
-        //var disconectedUser = listOfUsers[socket.userid];
-        // var user =  listOfUsers[socket.userid];
-
-
-        //  listOfUsersOffline[socket.userid] = {
-        //     userid:socket.userid
-        // };
-
         delete   listOfUsers[socket.userid];
     });
 
