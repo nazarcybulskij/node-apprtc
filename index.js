@@ -48,10 +48,13 @@ io.on('connection', function(socket) {
 
     var params = socket.handshake.query;
     var sessionid = params.sessionid;
-    //var socketMessageEvent = params.msgEvent || '';
     var userId = params.userid ;
+    
+    console.log('connect '+userId)
 
     appendUser(socket);
+    
+  
 
     // convenience function to log server messages on the client
     function log() {
@@ -74,6 +77,8 @@ io.on('connection', function(socket) {
             sesionId:sessionId
         };
         socket.userid = userId;
+        
+        delete   listOfUsersOffline[userId];
     }
 
     function sendCallPush(topic,messagedata){
@@ -116,43 +121,91 @@ io.on('connection', function(socket) {
 
     socket.on('call', function(userId) {
 
-        var userTo = listOfUsers[userId];
-
         var userFrom = listOfUsers[socket.userid];
-
-        if (userTo == undefined) {
-            //socket.leaveAll()
-            userFrom.socket.emit('outgoing-call', userId, socket.id);
-            sendCallPush('/topics/'+encodeURIComponent(userId),{
-                user_id:userId,
-                room_id:socket.id
-
-            })
-
-            userFrom.otherUserId = userId;
-
-            listOfUsersOffline[userId]={
-                otherUserId:socket.userid
-            }
-
-        } else{
-            if (userFrom!==undefined){
-                if (userFrom.socket!==undefined){
-                        userFrom.socket.emit('outgoing-call', userId, socket.id);
-                }
+        var userTo = listOfUsers[userId];
+        
+        if (userFrom!==undefined){
+            
+            if (userTo===undefined){
+                
+                userFrom.socket.emit('outgoing-call', userId, socket.id);
                 userFrom.otherUserId = userId;
+                
+                //push  
+                
+                sendCallPush('/topics/'+encodeURIComponent(userId),{
+                    user_id:socket.userid,
+                    room_id:socket.userid
+                })
+                userTo = listOfUsersOffline[userId];
+                
+        
+                userTo =  {
+                    socket: userTo.socket,
+                    userid:userTo.userid,
+                    otherUserId:socket.userid
+                };
+          
+                
+
+            }else{
+                
+                userFrom.socket.emit('outgoing-call', userId, socket.id);
+                userFrom.otherUserId = userId;
+                
+                userTo.socket.emit('incoming-call', userId, socket.id);
+                userTo.otherUserId = socket.userid;
+                
             }
-            userTo.socket.emit('incoming-call', userId, socket.id);
-            userTo.otherUserId = socket.userid;
+            
         }
+        
+     
     });
 
 
     socket.on('answer-call', function(userId) {
-
-        var userTo = listOfUsers[userId];
+        
         var userFrom = listOfUsers[socket.userid];
+        var userTo = listOfUsers[userId];
 
+
+       
+        if (userTo === undefined){
+            if (userFrom !== undefined){
+                userFrom.socket.emit('answer-call-phone', userId, socket.id);
+            }
+            console.log('userFrom')
+            return;
+        }
+        
+        if (userFrom === undefined){
+            if (userTo !== undefined){
+                userTo.socket.emit('answer-call-phone', userId, socket.id);
+            }
+             console.log('userTo')
+            return
+        }
+        
+        
+         if (userId===socket.userid){
+            userFrom.socket.emit('answer-call-phone', userId, socket.id);
+            userTo = listOfUsers[userFrom.otherUserId];
+            if (userTo !== undefined){
+                userTo.socket.emit('answer-call-phone', userId, socket.id);
+            }
+        }else{
+            userFrom.socket.emit('answer-call-phone', userId, socket.id);
+            userTo.socket.emit('answer-call-phone', userId, socket.id);
+        }
+        
+       
+       
+        
+    
+
+
+/*
 
         if (userFrom === userTo){
             userTo.socket.emit('answer-call-phone', userId, socket.id);
@@ -169,35 +222,44 @@ io.on('connection', function(socket) {
             socket.emit('answer-call-phone', userId, socket.id);
             userTo.socket.emit('answer-call-phone', userId, socket.id);
         }
-        // }
+        
+   */
 
     });
 
 
     socket.on('hang-up', function(userId) {
+        
+        console.log(userId +"   "+socket.userid)
+        
         var userTo = listOfUsers[userId];
         var userFrom = listOfUsers[socket.userid];
-
-        // if (userTo == undefined) {
-        //     socket.leaveAll()
-        //     userFrom.socket.emit('hang-up-call', userId, socket.id);
-        //     return;
-        // } else{
-
-        if (userFrom === userTo){
-            userTo.socket.emit('hang-up-call', userId, socket.id);
-            userFrom = listOfUsers[userTo.otherUserId];
-            if  (userFrom !== undefined){
-                userFrom.socket.emit('hang-up-call', userId, socket.id);
-            }else{
-                userFrom = listOfUsers[listOfUsersOffline[userId].otherUserId];
-                userFrom.socket.emit('hang-up-call', userId, socket.id);
+        
+        if (userTo === undefined){
+            if (userFrom !== undefined){
+                userFrom.socket.emit('hang-up-call', userId, socket.userid);
+                return
             }
-        }else{
-            socket.emit('hang-up-call', userId, socket.id);
-            userTo.socket.emit('hang-up-call', userId, socket.id);
         }
-        // }
+        
+        if (userFrom === undefined){
+            if (userTo !== undefined){
+                userTo.socket.emit('hang-up-call', userId, socket.userid);
+                return
+            }
+        }
+        
+       if (userId===socket.userid){
+             userFrom.socket.emit('hang-up-call', userId, socket.userid);
+             userTo = listOfUsers[userFrom.otherUserId];
+             if (userTo !== undefined){
+                  userTo.socket.emit('hang-up-call', userId, socket.userid);
+             }
+        }else{
+            userFrom.socket.emit('hang-up-call', userId, socket.userid);
+            userTo.socket.emit('hang-up-call', userId, socket.userid);
+        }
+        
     });
 
 
@@ -205,10 +267,12 @@ io.on('connection', function(socket) {
         var userids =[];
         var currentUser = listOfUsers[socket.userid];
         if (currentUser === undefined){
+             socket.emit('users-ids',userids);
             return;
         }
 
         if (currentUser.userid === undefined){
+             socket.emit('users-ids',userids);
             return;
         }
 
@@ -235,6 +299,12 @@ io.on('connection', function(socket) {
 
     socket.on('disconnect', function() {
         console.log('Got disconnect!');
+        
+        var deleteuser = listOfUsers[socket.userid];
+        listOfUsersOffline[socket.userid] = deleteuser;
+        
+        console.log('delete '+socket.userid);
+        
         delete   listOfUsers[socket.userid];
     });
 
