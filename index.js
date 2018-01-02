@@ -103,12 +103,19 @@ io.on('connection', function(socket) {
         var userTo = listOfUsers[userId];
         var userFrom = listOfUsers[socket.userid];
         
-        if (userTo == undefined) {
+        if (userFrom!==undefined){
+            
+            if (userTo===undefined){
+                userFrom.socket.emit('message_received', message, userId);
+                sendCallPush('/topics/'+encodeURIComponent(userId),{
+                    user_id:socket.userid,
+                    message_id:message
+                })
 
-
-        }else{
-            socket.emit('message_received', message, userId);
-            userTo.socket.emit('message_new', message, socket.userid);
+            }else{
+                userFrom.socket.emit('message_received', message, userId);
+                userTo.socket.emit('message_new', message, socket.userid);
+            }
         }
         
         // log('Client said: ', message);
@@ -135,13 +142,12 @@ io.on('connection', function(socket) {
                 
                 sendCallPush('/topics/'+encodeURIComponent(userId),{
                     user_id:socket.userid,
-                    room_id:socket.userid
+                    room_id:socket.id
                 })
                 userTo = listOfUsersOffline[userId];
                 
         
                 userTo =  {
-                    socket: userTo.socket,
                     userid:userTo.userid,
                     otherUserId:socket.userid
                 };
